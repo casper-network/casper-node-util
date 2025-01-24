@@ -12,7 +12,6 @@ on:
 
 jobs:
   publish:
-    name: publish
     runs-on: ubuntu-latest
     steps:
       # Assign AWS PROD role to get access to production cloudfronts and S3 buckets
