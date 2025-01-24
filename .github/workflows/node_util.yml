@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'feat-**'
 
 jobs:
   publish:
@@ -22,9 +23,12 @@ jobs:
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ secrets.AWS_ACCESS_REGION_GENESIS }}
 
-      - name: Upload artifacts to S3
+      - name: Make useless file
         run: |
           date >> date_file
+
+      - name: Upload artifacts to S3
+        run: |
           aws s3 sync . s3://{{ secrets.AWS_BUCKET_GENESIS }}/artifact/node-util/
 
       - name: Invalidate CloudFront cache
