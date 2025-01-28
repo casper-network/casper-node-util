@@ -24,7 +24,7 @@ jobs:
 
       - name: Make useless file
         run: |
-          git ls-files >> ls-files
+          echo "test file" >> upload-file
 
       - name: Upload artifacts to S3
         run: |
