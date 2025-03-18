@@ -1,2 +1,2 @@
 # node_util
-To hold node_util script or program that will be installed rather than bundled with casper-node-launcher
+To hold casper-node-util script which is installed as debian package rather than bundled with casper-node-launcher

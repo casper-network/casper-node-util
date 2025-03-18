@@ -42,6 +42,7 @@ class NodeUtil:
     NET_CONFIG_PATH = CONFIG_PATH / "network_configs"
     SCRIPT_NAME = "casper-node-util"
     NODE_IP = "127.0.0.1"
+    # Below is automatically replaced. Modify set_version.py if changing
     VERSION = "1.0.7"
 
     def __init__(self):
