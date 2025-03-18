@@ -17,7 +17,6 @@ import time
 import glob
 import tempfile
 
-
 # protocol 1_0_0 should have accounts.toml
 # All other protocols should have chainspec.toml, config.toml and NOT accounts.toml
 # Protocols are shipped with config-example.toml to make config.toml
@@ -42,8 +41,9 @@ class NodeUtil:
     DB_PATH = Path("/var/lib/casper/casper-node")
     NET_CONFIG_PATH = CONFIG_PATH / "network_configs"
     PLATFORM_PATH = CONFIG_PATH / "PLATFORM"
-    SCRIPT_NAME = "node_util.py"
+    SCRIPT_NAME = "casper-casper-node-util"
     NODE_IP = "127.0.0.1"
+    VERSION = "1.0.7"
 
     def __init__(self):
         self._network_name = None
@@ -56,9 +56,8 @@ class NodeUtil:
             try:
                 usage_docs.append(f"  {function} - {getattr(self, function).__doc__.strip()}")
             except AttributeError:
-                raise Exception(
-                    f"Error creating usage docs, expecting {function} to be root function and have doc comment."
-                    f" Lead with underscore if not.")
+                raise Exception(f"Error creating usage docs, expecting {function} to be root function and have doc comment."
+                                f" Lead with underscore if not.")
             commands.append(function)
         usage_docs.append(" ")
 
@@ -69,6 +68,7 @@ class NodeUtil:
             usage="\n".join(usage_docs))
         parser.add_argument("command", help="Subcommand to run.", choices=commands)
         args = parser.parse_args(sys.argv[1:2])
+
         getattr(self, args.command)()
 
     @staticmethod
@@ -81,6 +81,10 @@ class NodeUtil:
         r = request.urlopen(req, payload, timeout=timeout)
         json_data = json.loads(r.read())
         return json_data["result"]
+
+    def version(self):
+        """ Get current version of casper-node-util """
+        print(self.VERSION)
 
     @staticmethod
     def _rpc_get_block(server: str, block_height=None, port: int = 7777, timeout: int = 5):
@@ -214,22 +218,8 @@ class NodeUtil:
             print(f"Error: expected config file location {NodeUtil.CONFIG_PATH} not found.")
             exit(1)
 
-        # Expectation is one config.tar.gz but multiple bin*.tar.gz
-        # bin.tar.gz is mainnet bin and debian
-        # bin_new.tar.gz is post 1.4.0 launch and debian
-        # bin_rpm.tar.gz is mainnet bin and RHEL (_arch will be used for others in the future)
-        # bin_rpm_new.tar.gz is post 1.4.0 launch and RHEL
-
-        bin_file = "bin"
-        if platform != "deb":
-            # Handle alternative builds
-            bin_file += f"_{platform}"
-        if self._bin_mode != "mainnet":
-            # Handle non mainnet for post 1.4.0 launched networks
-            bin_file += "_new"
-        bin_file += ".tar.gz"
+        bin_file = "bin.tar.gz"
         config_file = "config.tar.gz"
-        print(f"Using bin mode file of {bin_file}")
 
         etc_full_path = NodeUtil.CONFIG_PATH / protocol_version
         bin_full_path = NodeUtil.BIN_PATH / protocol_version
@@ -355,6 +345,8 @@ class NodeUtil:
                 new_output.append(f"{name} = {new_value}")
             else:
                 new_output.append(line)
+            # Make trailing new line
+            new_output.append("")
         return "\n".join(new_output)
 
     def _config_from_example(self, protocol_version, ip=None, replace_toml=None):
@@ -394,7 +386,7 @@ class NodeUtil:
             config_text = NodeUtil._replace_config_values(config_text, replace_toml)
 
         outfile.write_text(config_text.replace("<IP ADDRESS>", ip))
-
+        
         return True
 
     def config_from_example(self):
@@ -624,7 +616,7 @@ class NodeUtil:
         self._verify_root_user()
         state_path = self.CONFIG_PATH / "casper-node-launcher-state.toml"
         lines = ["mode = 'RunNodeAsValidator'",
-                 f"version = '{version.replace('_', '.')}'",
+                 f"version = '{version.replace('_','.')}'",
                  f"binary_path = '/var/lib/casper/bin/{version}/casper-node'",
                  f"config_path = '/etc/casper/{version}/config.toml'"]
         state_path.write_text("\n".join(lines))
@@ -837,9 +829,6 @@ class NodeUtil:
                             help="Protocol version for chainspec to verify same network",
                             required=False,
                             default="1_0_0")
-        parser.add_argument("--block",
-                            help="Block number to use (latest if omitted)",
-                            required=False)
 
         args = parser.parse_args(sys.argv[2:])
 
@@ -866,24 +855,86 @@ class NodeUtil:
         if last_added_block_info is None:
             print(f"No last_added_block_info in {args.ip} status. Node is not in sync and will not be used.")
             exit(1)
-        # If no block, getting latest so store now
         block_hash = last_added_block_info["hash"]
-        if args.block:
-            try:
-                block = self._rpc_get_block(server=args.ip, block_height=args.block)
-                block_hash = block["block"]["hash"]
-            except Exception as e:
-                if "timed out" in str(e):
-                    print(f"RPC call timed out, either {args.ip} has RPC port blocked or is not in sync.")
-                else:
-                    print(f"Error calling RPC for {args.ip}.")
-                exit(1)
         print(f"{block_hash}")
 
     def get_ip(self):
         """ Get external IP of node. Can be used to test code used for automatically filling IP
          or to check if you need to update the IP in your config.toml file. """
         print(self._get_external_ip())
+
+    def node_log(self):
+        """ Get nodes current logs. Same as 'cat /var/log/casper-node.log` with grep added if using arguments
+        and tail if following. """
+        parser = argparse.ArgumentParser(description=self.node_log.__doc__,
+                                         usage=f"{self.SCRIPT_NAME} node_log [--err] [--warn] [--follow]")
+        parser.add_argument("--err",
+                            help="Return log lines with level ERR",
+                            action='store_true',
+                            required=False)
+        parser.add_argument("--warn",
+                            help="Return log lines with level WARN",
+                            action='store_true',
+                            required=False)
+        parser.add_argument("--follow",
+                            help="Follow log file as lines are added",
+                            action='store_true',
+                            required=False)
+        args = parser.parse_args(sys.argv[2:])
+
+        grep_args = ""
+        grep_args += " -e '\"level\":\"ERR\"'" if args.err else ""
+        grep_args += " -e '\"level\":\"WARN\"'" if args.warn else ""
+
+        grep = f" | grep {grep_args}" if len(grep_args) > 0 else ""
+
+        main_cmd = "tail -f" if args.follow else "cat"
+
+        os.system(f"{main_cmd} /var/log/casper/casper-node.log {grep}")
+
+    @staticmethod
+    def node_error_log():
+        """ Get nodes current teardown error log. Same as 'cat /var/log/casper-node.stderr.log` """
+        os.system("cat /var/log/casper/casper-node.stderr.log")
+
+    @staticmethod
+    def sidecar_status():
+        """ Get systemd status of casper-sidecar. Same as `systemctl status casper-sidecar` """
+        # using op.popen to stop hanging return to terminate
+        result = os.popen("systemctl status casper-sidecar")
+        print(result.read())
+
+    def sidecar_log(self):
+        """ Get log from casper-sidecar. Same as `journalctl -u casper-sidecar --no-pager` """
+        parser = argparse.ArgumentParser(description=self.sidecar_log.__doc__,
+                                         usage=f"{self.SCRIPT_NAME} sidecar_log [--follow]")
+        parser.add_argument("--follow",
+                            help="Follow log file as lines are added",
+                            action='store_true',
+                            required=False)
+
+        args = parser.parse_args(sys.argv[2:])
+        follow = "--follow" if args.follow else ""
+        os.system(f"journalctl -u casper-sidecar --no-pager {follow}")
+
+    def sidecar_stop(self):
+        """ Stop casper-sidecar. Use 'sudo'.
+        Same as `sudo systemctl stop casper-sidecar` """
+        self._verify_root_user()
+        os.system("sudo systemctl stop casper-sidecar")
+
+    def sidecar_start(self):
+        """ Start casper-sidecar. Use 'sudo'.
+        Same as `sudo systemctl start casper-sidecar` """
+        self._verify_root_user()
+        os.system("sudo systemctl start casper-sidecar")
+
+    def sidecar_restart(self):
+        """ Restart casper-sidecar. Use 'sudo'. """
+        self._verify_root_user()
+        self.sidecar_stop()
+        time.sleep(0.5)
+        self.sidecar_start()
 
 
 if __name__ == '__main__':
