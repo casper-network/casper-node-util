@@ -40,8 +40,7 @@ class NodeUtil:
     BIN_PATH = Path("/var/lib/casper/bin")
     DB_PATH = Path("/var/lib/casper/casper-node")
     NET_CONFIG_PATH = CONFIG_PATH / "network_configs"
-    PLATFORM_PATH = CONFIG_PATH / "PLATFORM"
-    SCRIPT_NAME = "casper-casper-node-util"
+    SCRIPT_NAME = "casper-node-util"
     NODE_IP = "127.0.0.1"
     VERSION = "1.0.7"
 
@@ -95,14 +94,6 @@ class NodeUtil:
         if block_height:
             params = [{"Height": int(block_height)}]
         return NodeUtil._rpc_call("chain_get_block", server, params, port)
-
-    @staticmethod
-    def _get_platform():
-        """ Support old default debian and then newer platforms with PLATFORM files """
-        if NodeUtil.PLATFORM_PATH.exists():
-            return NodeUtil.PLATFORM_PATH.read_text().strip()
-        else:
-            return "deb"
 
     def _load_config_values(self, config):
         """
@@ -207,7 +198,7 @@ class NodeUtil:
     def _network_url(self):
         return f"http://{self._url}/{self._network_name}"
 
-    def _pull_protocol_version(self, protocol_version, platform="deb"):
+    def _pull_protocol_version(self, protocol_version):
         self._verify_casper_user()
 
         if not NodeUtil.BIN_PATH.exists():
@@ -427,7 +418,6 @@ class NodeUtil:
         self._load_config_values(args.config)
 
         self._verify_casper_user()
-        platform = self._get_platform()
         exit_code = 0
         for pv in self._get_protocols():
             status = self._check_staged_version(pv)
@@ -440,7 +430,7 @@ class NodeUtil:
                 continue
             if status == Status.UNSTAGED:
                 print(f"Pulling protocol for {pv}.")
-                if not self._pull_protocol_version(pv, platform):
+                if not self._pull_protocol_version(pv):
                     exit_code = 1
             if status in (Status.UNSTAGED, Status.NO_CONFIG):
                 print(f"Creating config for {pv}.")
