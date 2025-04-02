@@ -31,7 +31,7 @@ def _line_start_replace(line_start, new_text, file_path):
 
 def set_script_version(version):
     print(f"Updating {SCRIPT_FILE}")
-    line_start = '    VERSION ='
+    line_start = 'VERSION ='
     _line_start_replace(line_start,
                         new_text=f'{line_start} "{version}"',
                         file_path=SCRIPT_FILE)
