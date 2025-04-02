@@ -21,7 +21,7 @@ BRANCH_NAME=$(git branch --show-current)
 SCRIPT_VERSION=$(cat "$ROOT_DIR/VERSION")
 
 echo "Copying debian to artifacts"
-./build_deb.sh
+"$ROOT_DIR/ci/build_deb.sh"
 
 echo "Copying script to artifacts"
 cp "$ROOT_DIR/casper-node-util/usr/bin/casper-node-util" "$ARTIFACTS_DIR/casper-node-util"

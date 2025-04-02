@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-cd ..
-mkdir -p artifacts
-dpkg-deb --build casper-node-util "./artifacts/casper-node-util-$(cat VERSION).deb"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
+mkdir -p "$ROOT_DIR/artifacts"
+dpkg-deb --build casper-node-util "$ROOT_DIR/artifacts/casper-node-util-$(cat VERSION).deb"
