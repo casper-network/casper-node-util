@@ -33,10 +33,10 @@ jobs:
 
       - name: Install deps
         run: |
-          echo "deb http://repo.aptly.info/ squeeze main" | sudo tee -a /etc/apt/sources.list.d/aptly.list
+          echo "deb http://repo.aptly.info/ jammy main" | sudo tee -a /etc/apt/sources.list.d/aptly.list
           wget -qO - https://www.aptly.info/pubkey.txt | sudo apt-key add -
           sudo apt-get update
-          sudo apt-get install -y aptly=1.4.0
+          sudo apt-get install -y aptly=1.6.2
           aptly config show
 
       - name: Import GPG key
