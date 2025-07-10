@@ -30,7 +30,7 @@ NET_CONFIG_PATH = CONFIG_PATH / "network_configs"
 SCRIPT_NAME = "casper-node-util"
 NODE_IP = "127.0.0.1"
 # Below is automatically replaced. Modify set_version.py if changing
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 
 def get_value_in_section(lines, section_name, value_name):
     """ A bit of a hack due to toml not being in std lib """
@@ -212,6 +212,18 @@ def is_toml_comment_or_empty(line_data):
 
 def replace_config_values(config_data, replace_file):
     """ Replace values in config_data with values for fields in replace_file """
+
+    # new line with replacement value if needed or original line
+    def original_or_replaced_line(replacements, header, name, line):
+        replacement_value = [r_value for r_header, r_name, r_value in replacements
+                             if header == r_header and name == r_name]
+        if len(replacement_value) == 0:
+            return line
+        else:
+            new_value = replacement_value[0]
+            print(f"Replacing {last_header}:{name} = {value} with {new_value}")
+            return f"{name} = {new_value}"
+
     replace_file_path = Path(replace_file)
     if not replace_file_path.exists():
         raise ValueError(f"Cannot replace values in config, {replace_file} does not exist.")
@@ -231,7 +243,14 @@ def replace_config_values(config_data, replace_file):
     last_header = None
     for line in config_data.splitlines():
         if is_toml_comment_or_empty(line):
-            new_output.append(line)
+            # See if this is a commented out value such as trusted_hash
+            try:
+                name, value = toml_name_value(line[1:])
+                line = original_or_replaced_line(replacements, last_header, name, line)
+                new_output.append(line)
+            except ValueError:
+                # parsing failed so comment isn't a name=value pair.
+                new_output.append(line)
             continue
         header = toml_header(line)
         if header is not None:
@@ -239,16 +258,11 @@ def replace_config_values(config_data, replace_file):
             new_output.append(line)
             continue
         name, value = toml_name_value(line)
-        replacement_value = [r_value for r_header, r_name, r_value in replacements
-                             if last_header == r_header and name == r_name]
-        if replacement_value:
-            new_value = replacement_value[0]
-            print(f"Replacing {last_header}:{name} = {value} with {new_value}")
-            new_output.append(f"{name} = {new_value}")
-        else:
-            new_output.append(line)
-        # Make trailing new line
-        new_output.append("")
+        line = original_or_replaced_line(replacements, last_header, name, value)
+        new_output.append(line)
+
+    # Make trailing new line
+    new_output.append("")
     return "\n".join(new_output)
 
 def walk_path(path, include_dir=True):

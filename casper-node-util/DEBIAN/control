@@ -1,5 +1,5 @@
 Package: casper-node-util
-Version: 1.0.7
+Version: 1.0.8
 Architecture: all
 Maintainer: Joe Sacher <joe.sacher@casper.network>
 Description: Utility for working with casper-node and casper-sidecar
