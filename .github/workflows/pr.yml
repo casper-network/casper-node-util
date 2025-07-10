@@ -3,6 +3,8 @@ name: ci-casper-sidecar
 
 on:
   pull_request:
+    branches:
+      - "main"
 
 jobs:
   build_and_test:
@@ -14,11 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b #v3.0.2
 
-      # Not needed for anything but publish, however verifies aptly install
       - name: Install deps
         run: |
-#          echo "deb http://repo.aptly.info/ jammy main" | sudo tee -a /etc/apt/sources.list.d/aptly.list
-#          sudo wget -O /etc/apt/keyrings/aptly.asc https://www.aptly.info/pubkey.txt
           sudo apt-get update
           sudo apt-get install -y aptly
           aptly config show
