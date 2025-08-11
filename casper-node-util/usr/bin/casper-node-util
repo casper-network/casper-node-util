@@ -30,7 +30,7 @@ NET_CONFIG_PATH = CONFIG_PATH / "network_configs"
 SCRIPT_NAME = "casper-node-util"
 NODE_IP = "127.0.0.1"
 # Below is automatically replaced. Modify set_version.py if changing
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 
 def get_value_in_section(lines, section_name, value_name):
     """ A bit of a hack due to toml not being in std lib """
@@ -515,6 +515,47 @@ class NodeUtil:
         args = parser.parse_args(sys.argv[2:])
         ip = str(args.ip) if args.ip else None
         self._config_from_example(args.protocol_version, ip, args.replace)
+
+    def stage_single_protocol(self):
+        """Stage a single protocol without checking if available"""
+        parser = argparse.ArgumentParser(description=self.stage_protocols.__doc__,
+                                         usage=(f"{SCRIPT_NAME} stage_single_protocol [-h] config protocol_version "
+                                                "[--ip IP] [--replace toml_file]"))
+        parser.add_argument("config", type=str, help=f"name of config file to use from {NET_CONFIG_PATH}")
+        parser.add_argument("protocol_version", type=str, help=f"protocol version to pull (x_y_z)")
+        parser.add_argument("--ip",
+                            type=ip_address,
+                            help=f"optional ip to use for config.toml instead of detected ip.",
+                            required=False)
+        parser.add_argument("--replace",
+                            type=str,
+                            help=("optional toml file that holds replacements to make to config.toml "
+                                  "from config-example.toml"),
+                            required=False)
+        args = parser.parse_args(sys.argv[2:])
+        self._load_config_values(args.config)
+
+        verify_casper_user()
+        exit_code = 0
+        pv = args.protocol_version
+        status = self._check_staged_version(pv)
+        if status == StagedStatus.STAGED:
+            print(f"{pv}: {status}")
+        elif status in (StagedStatus.BIN_ONLY, StagedStatus.CONFIG_ONLY):
+            print(f"{pv}: {status} - Not automatically recoverable.")
+            exit_code = 1
+        if status == StagedStatus.UNSTAGED:
+            print(f"Pulling protocol for {pv}.")
+            if not self._pull_protocol_version(pv):
+                exit_code = 1
+        if status in (StagedStatus.UNSTAGED, StagedStatus.NO_CONFIG):
+            print(f"Creating config for {pv}.")
+            ip = str(args.ip) if args.ip else None
+            if not self._config_from_example(pv, ip, args.replace):
+                exit_code = 1
+        exit(exit_code)
+
+
 
     def stage_protocols(self):
         """Stage available protocols if needed (use 'sudo -u casper')"""
